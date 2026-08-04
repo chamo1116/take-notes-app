@@ -81,3 +81,52 @@ def test_refresh_returns_new_access_token(api_client: APIClient) -> None:
 
     assert response.status_code == status.HTTP_200_OK
     assert "access" in response.data
+
+
+def test_signup_with_valid_data_returns_201_and_tokens(api_client: APIClient) -> None:
+    response = api_client.post(
+        reverse("signup"), {"email": "jane@example.com", "password": "testpass123"}
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert "access" in response.data
+    assert "refresh" in response.data
+
+
+def test_signup_with_duplicate_email_returns_400(api_client: APIClient) -> None:
+    UserFactory(email="jane@example.com")
+
+    response = api_client.post(
+        reverse("signup"), {"email": "jane@example.com", "password": "testpass123"}
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_signup_with_weak_password_returns_400(api_client: APIClient) -> None:
+    response = api_client.post(
+        reverse("signup"), {"email": "jane@example.com", "password": "password"}
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_signup_missing_fields_returns_400(api_client: APIClient) -> None:
+    response = api_client.post(reverse("signup"), {"email": "jane@example.com"})
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_signup_is_throttled_after_too_many_attempts(
+    api_client: APIClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ScopedRateThrottle, "THROTTLE_RATES", {"signup": "3/min"})
+
+    responses = [
+        api_client.post(
+            reverse("signup"), {"email": f"jane{i}@example.com", "password": "testpass123"}
+        )
+        for i in range(4)
+    ]
+
+    assert responses[-1].status_code == status.HTTP_429_TOO_MANY_REQUESTS

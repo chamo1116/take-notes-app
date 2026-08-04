@@ -48,6 +48,8 @@ test.describe("Login page", () => {
     await page.getByRole("button", { name: "Login" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Logged in")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "All Categories" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "New Note" })).toBeVisible();
+    await expect(page.getByText("I'm just here waiting for your charming notes...")).toBeVisible();
   });
 });

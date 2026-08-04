@@ -45,6 +45,15 @@ Apply these practices whenever writing or reviewing Next.js code in this repo. A
 - Verify touch targets (≥44×44px) and tap-friendly spacing on interactive elements for mobile, and that hover-only interactions have a non-hover fallback (mobile has no hover).
 - Test with real device widths (Playwright's device presets or browser devtools), not just by shrinking a desktop window.
 
+## Logging
+
+- Use a single small logging helper (e.g. `lib/logger.ts`) instead of scattering raw `console.log` — route through it consistently so log format/level is uniform and stray debug statements are easy to grep out before merging.
+- Log meaningful, useful events, not noise: in Server Actions/Route Handlers, log auth failures, unexpected backend/API errors, and other business-relevant outcomes at an appropriate level — don't log every successful request.
+- Server-side code (Server Components, Server Actions, Route Handlers) logs to the server terminal/process logs; client-side (`"use client"`) code logs to the browser console. Be deliberate about which side a log runs on, and never ship debug `console.log`s left over from client-side development.
+- On failed external calls (`fetch` to the backend, third-party APIs), log the failure server-side with enough context to debug (status code, endpoint, a request id if available) before returning a generic message to the user — don't let a fetch failure disappear silently into a bare `if (!response.ok)`.
+- Never log secrets or sensitive data — passwords, tokens, full request/response bodies containing user credentials. Log identifiers (email, user id), not the credential itself.
+- Surface unexpected render/data errors through `error.tsx` boundaries, and log them there too, rather than letting them fail silently to a blank section of the page.
+
 ## Performance
 
 - Images: always `next/image`, never a raw `<img>`, with explicit `width`/`height` (or `fill` + a sized parent) to avoid layout shift, and `priority` only on the actual above-the-fold LCP image.

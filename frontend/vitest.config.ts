@@ -25,7 +25,7 @@ export default defineConfig({
         "**/*.config.*",
         "app/**/page.tsx",
         "app/layout.tsx",
-        "app/login/actions.ts",
+        "app/**/actions.ts",
         "app/**/*.test.*",
         "env.ts",
       ],

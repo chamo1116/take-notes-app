@@ -1,22 +1,18 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { PasswordVisibilityToggle } from "@/components/PasswordVisibilityToggle";
+import { signupAction, type SignupFormState } from "./actions";
+
+const initialState: SignupFormState = {};
 
 export function SignupForm() {
+  const [state, formAction, isPending] = useActionState(signupAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    // No signup endpoint yet — this is a UI-only placeholder until account
-    // creation is wired up on the backend.
-    setMessage("Sign up isn't available yet — check back soon!");
-  }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-[384px] flex-col items-center gap-4">
+    <form action={formAction} className="flex w-full max-w-[384px] flex-col items-center gap-4">
       <input
         type="email"
         name="email"
@@ -39,17 +35,18 @@ export function SignupForm() {
         />
       </div>
 
-      {message && (
+      {state.error && (
         <p role="alert" data-testid="signup-message" className="font-inter text-xs text-red-600">
-          {message}
+          {state.error}
         </p>
       )}
 
       <button
         type="submit"
-        className="w-full rounded-full border border-brown py-2 font-inria-serif text-xl font-bold text-brown transition-opacity"
+        disabled={isPending}
+        className="w-full rounded-full border border-brown py-2 font-inria-serif text-xl font-bold text-brown transition-opacity disabled:opacity-60"
       >
-        Sign Up
+        {isPending ? "Signing up..." : "Sign Up"}
       </button>
 
       <Link href="/login" className="font-inter text-xs font-normal text-brown underline">

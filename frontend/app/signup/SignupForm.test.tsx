@@ -1,9 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SignupForm } from "./SignupForm";
+import { signupAction } from "./actions";
+
+vi.mock("./actions", () => ({
+  signupAction: vi.fn(),
+}));
+
+const mockedSignupAction = vi.mocked(signupAction);
 
 describe("SignupForm", () => {
+  beforeEach(() => {
+    mockedSignupAction.mockReset();
+  });
+
   it("renders email and password fields and a submit button", () => {
     render(<SignupForm />);
 
@@ -26,7 +37,8 @@ describe("SignupForm", () => {
     expect(passwordInput).toHaveAttribute("type", "password");
   });
 
-  it("shows a placeholder message on submit since there's no signup endpoint yet", async () => {
+  it("shows an inline error message when the server action returns one", async () => {
+    mockedSignupAction.mockResolvedValue({ error: "A user with this email already exists." });
     const user = userEvent.setup();
     render(<SignupForm />);
 
@@ -34,9 +46,11 @@ describe("SignupForm", () => {
     await user.type(screen.getByPlaceholderText("Password"), "testpass123");
     await user.click(screen.getByRole("button", { name: "Sign Up" }));
 
-    expect(screen.getByTestId("signup-message")).toHaveTextContent(
-      "Sign up isn't available yet — check back soon!",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("signup-message")).toHaveTextContent(
+        "A user with this email already exists.",
+      );
+    });
   });
 
   it("links back to the login page for existing users", () => {

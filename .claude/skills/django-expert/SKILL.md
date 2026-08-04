@@ -73,6 +73,15 @@ Apply these practices whenever writing or reviewing Django code in this repo, wi
 - Raise `serializers.ValidationError` (not bare `ValueError`/`Exception`) inside serializer validation so DRF formats it correctly.
 - Use `get_object_or_404` (or DRF's generic view behavior, which already does this) instead of manual `try/except DoesNotExist`.
 
+## Logging
+
+- Use Python's `logging` module with a per-module named logger (`logger = logging.getLogger(__name__)`) — never `print()` for anything that should survive past local debugging.
+- Log meaningful, useful events, not noise: business-relevant occurrences (user signed up, login failed, payment processed, permission denied) at `info`/`warning`, and unexpected failures at `error`/`exception`. Don't log routine successful CRUD operations line-by-line — that's what `django.request`'s access log already covers.
+- Pick the level deliberately: `debug` for dev-only diagnostics, `info` for expected business events, `warning` for anticipated-but-notable failures (bad credentials, validation rejected), `error`/`exception` for unexpected failures. Use `logger.exception(...)` (not `logger.error`) inside an `except` block so the stack trace is captured.
+- Attach context with `extra={...}` (user id, request id, relevant object id) rather than only interpolating it into the message string, so logs stay filterable/queryable instead of being free-text soup.
+- Never log secrets or sensitive PII in the clear — passwords, tokens, full card numbers. Log identifiers (user id/email) instead of the credential itself.
+- Configure `LOGGING` explicitly in `settings/base.py` (formatter + console handler at minimum, with per-environment level overrides in `dev.py`/`prod.py`) — don't rely on Django's implicit default, which silently drops most app-level log calls below `WARNING`.
+
 ## Performance
 
 - Watch for N+1 queries any time a list serializer touches a related field — fix at the queryset level (`select_related`/`prefetch_related`/`Prefetch`), not by adding caching as a band-aid.

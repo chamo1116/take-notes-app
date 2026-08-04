@@ -8,5 +8,5 @@ ALLOWED_HOSTS = ["*"]
 # hitting login from the same container IP) doesn't trip the brute-force guard.
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
-    "DEFAULT_THROTTLE_RATES": {"login": "20/min"},
+    "DEFAULT_THROTTLE_RATES": {"login": "20/min", "signup": "20/min"},
 }
