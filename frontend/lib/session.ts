@@ -19,3 +19,9 @@ export async function setAuthCookies(access: string, refresh: string): Promise<v
     maxAge: 60 * 60 * 24 * 7,
   });
 }
+
+export async function clearAuthCookies(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete("access_token");
+  cookieStore.delete("refresh_token");
+}
