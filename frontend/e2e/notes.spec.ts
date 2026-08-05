@@ -138,7 +138,13 @@ test.describe("Note creation", () => {
 
     await expect(page.getByTestId("note-card")).toHaveCount(6);
 
-    await page.getByTestId("note-card").last().scrollIntoViewIfNeeded();
+    // Six cards can already fit above the fold at some viewport sizes, so the
+    // IntersectionObserver may fire before this even runs. Scroll the window
+    // rather than a specific note-card element: that card can get reflowed
+    // (or appended past) mid-action by the very fetch this triggers, which
+    // made `.last().scrollIntoViewIfNeeded()` flaky ("element is not stable"
+    // / "not attached to the DOM").
+    await page.mouse.wheel(0, 2000);
 
     await expect(page.getByTestId("note-card")).toHaveCount(7, { timeout: 5000 });
   });

@@ -168,6 +168,20 @@ jobs:
         working-directory: backend
         run: uv run python manage.py migrate --noinput
 
+      # e2e/login.spec.ts's "logs in with valid credentials" test exercises
+      # login against a fixed account rather than signing up fresh (that's
+      # what the other specs do), so it needs to already exist. Matches that
+      # spec's E2E_TEST_EMAIL/E2E_TEST_PASSWORD fallback defaults.
+      - name: Seed e2e login test user
+        working-directory: backend
+        run: |
+          uv run python manage.py shell -c "
+          from django.contrib.auth import get_user_model
+          User = get_user_model()
+          if not User.objects.filter(email__iexact='test@example.com').exists():
+              User.objects.create_user(email='test@example.com', password='testpass123')
+          "
+
       - name: Start backend server
         working-directory: backend
         run: |
