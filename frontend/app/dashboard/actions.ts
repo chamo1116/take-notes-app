@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { env } from "@/env";
+import { apiUrl } from "@/env";
 import { CATEGORIES, zeroCountsByCategory, type CategorySlug } from "@/lib/categories";
 import { logger } from "@/lib/logger";
 import { clearAuthCookies } from "@/lib/session";
@@ -29,7 +29,7 @@ async function noteRequest(path: string, init: RequestInit): Promise<Response | 
   const token = cookieStore.get("access_token")?.value;
   if (!token) return null;
 
-  const url = path.startsWith("http") ? path : `${env.API_BASE_URL}${path}`;
+  const url = path.startsWith("http") ? path : apiUrl(path);
   return fetch(url, {
     ...init,
     headers: {
@@ -76,7 +76,7 @@ export async function createNoteAction(input: unknown): Promise<NoteActionResult
 
   let response: Response | null;
   try {
-    response = await noteRequest("/api/v1/notes/", {
+    response = await noteRequest("/api/v1/notes", {
       method: "POST",
       body: JSON.stringify(parsed.data),
     });
@@ -106,7 +106,7 @@ export async function updateNoteAction(id: number, input: unknown): Promise<Note
 
   let response: Response | null;
   try {
-    response = await noteRequest(`/api/v1/notes/${id}/`, {
+    response = await noteRequest(`/api/v1/notes/${id}`, {
       method: "PATCH",
       body: JSON.stringify(parsed.data),
     });
@@ -142,7 +142,7 @@ export async function getNotesAction(
 
   let response: Response | null;
   try {
-    response = await noteRequest(`/api/v1/notes/?${search.toString()}`, { method: "GET" });
+    response = await noteRequest(`/api/v1/notes?${search.toString()}`, { method: "GET" });
   } catch (err) {
     logger.error("List notes request failed", {
       error: err instanceof Error ? err.message : String(err),
@@ -172,7 +172,7 @@ export async function getCategoryCountsAction(): Promise<
 > {
   let response: Response | null;
   try {
-    response = await noteRequest("/api/v1/notes/category-counts/", { method: "GET" });
+    response = await noteRequest("/api/v1/notes/category-counts", { method: "GET" });
   } catch (err) {
     logger.error("Category counts request failed", {
       error: err instanceof Error ? err.message : String(err),

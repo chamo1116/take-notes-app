@@ -25,6 +25,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "config.middleware.TrustInternalServiceMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -81,7 +82,8 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -110,7 +112,20 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
 }
 
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+_cors_origins = env.list("CORS_ALLOWED_ORIGINS", default=[])
+# django-cors-headers validates every entry in CORS_ALLOWED_ORIGINS as a full
+# scheme+netloc origin, so a bare "*" fails Django's system checks (E013).
+# Allowing all origins is a separate setting, so translate the wildcard here
+# rather than relying on whoever sets the env var to know that distinction.
+CORS_ALLOW_ALL_ORIGINS = _cors_origins == ["*"]
+CORS_ALLOWED_ORIGINS = [] if CORS_ALLOW_ALL_ORIGINS else _cors_origins
+
+# Nothing in this app calls the API cross-origin from a browser — the
+# frontend talks to the backend server-to-server via Next.js Server Actions,
+# which CORS doesn't apply to. The only browser-facing surfaces on the
+# backend are the admin and the DRF browsable API, so scope CORS handling to
+# just the API paths rather than the whole app.
+CORS_URLS_REGEX = r"^/api/.*$"
 
 LOGGING = {
     "version": 1,

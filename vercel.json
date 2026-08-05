@@ -1,0 +1,36 @@
+{
+    "services": {
+        "frontend": {
+            "root": "frontend",
+            "framework": "nextjs",
+            "bindings": [
+                {
+                    "type": "service",
+                    "service": "backend",
+                    "format": "url",
+                    "env": "API_BASE_URL"
+                }
+            ]
+        },
+        "backend": {
+            "root": "backend",
+            "entrypoint": "config.wsgi:application"
+        }
+    },
+    "rewrites": [
+        {
+            "source": "/static/(.*)",
+            "destination": {
+                "type": "service",
+                "service": "backend"
+            }
+        },
+        {
+            "source": "/(.*)",
+            "destination": {
+                "type": "service",
+                "service": "frontend"
+            }
+        }
+    ]
+}

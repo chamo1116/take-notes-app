@@ -26,6 +26,9 @@ dev = [
 [tool.uv]
 package = false
 
+[tool.vercel.scripts]
+build = "python build.py"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

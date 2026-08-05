@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { env } from "@/env";
+import { apiUrl } from "@/env";
 import { logger } from "@/lib/logger";
 import { setAuthCookies } from "@/lib/session";
 
@@ -30,7 +30,7 @@ export async function loginAction(
 
   let response: Response;
   try {
-    response = await fetch(`${env.API_BASE_URL}/api/v1/auth/login/`, {
+    response = await fetch(apiUrl("/api/v1/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
