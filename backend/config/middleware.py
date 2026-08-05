@@ -1,3 +1,7 @@
+from collections.abc import Callable
+
+from django.http import HttpRequest, HttpResponse
+
 INTERNAL_SERVICE_HOST_SUFFIX = ".services.vercel-infra.com"
 
 
@@ -12,10 +16,10 @@ class TrustInternalServiceMiddleware:
     must run before SecurityMiddleware in the chain.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         # get_host() can include a port (e.g. "host:443"), which would never
         # match a hostname suffix check.
         host = request.get_host().split(":", 1)[0]
