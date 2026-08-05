@@ -68,6 +68,12 @@ jobs:
       - name: Django system check
         run: uv run python manage.py check
 
+      - name: Django deploy check (prod settings)
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DJANGO_ALLOWED_HOSTS: example.com
+        run: uv run python manage.py check --deploy
+
       - name: Run tests with coverage
         run: uv run pytest --cov=accounts --cov=notes --cov-report=term-missing --cov-fail-under=90
 
@@ -114,3 +120,106 @@ jobs:
 
       - name: Audit dependencies for known vulnerabilities
         run: pnpm audit --audit-level=high
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: take_notes
+          POSTGRES_USER: take_notes
+          POSTGRES_PASSWORD: changeme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U take_notes"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_SECRET_KEY: ci-test-secret-key-not-for-production
+      DJANGO_DEBUG: "1"
+      POSTGRES_DB: take_notes
+      POSTGRES_USER: take_notes
+      POSTGRES_PASSWORD: changeme
+      DB_HOST: localhost
+      DB_PORT: 5432
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      API_BASE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Apply migrations
+        working-directory: backend
+        run: uv run python manage.py migrate --noinput
+
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          nohup uv run python manage.py runserver 0.0.0.0:8000 > backend.log 2>&1 &
+          timeout 30 bash -c 'until curl -s -o /dev/null http://localhost:8000/api/v1/notes; do sleep 1; done'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm build
+
+      - name: Start frontend server
+        working-directory: frontend
+        run: |
+          nohup pnpm start > frontend.log 2>&1 &
+          timeout 30 bash -c 'until curl -s -o /dev/null http://localhost:3000; do sleep 1; done'
+
+      - name: Run Playwright tests
+        working-directory: frontend
+        run: pnpm e2e
+
+      - name: Upload backend/frontend logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-server-logs
+          path: |
+            backend/backend.log
+            frontend/frontend.log
+          if-no-files-found: ignore
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
