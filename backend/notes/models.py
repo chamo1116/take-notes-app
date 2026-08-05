@@ -22,6 +22,13 @@ class Note(models.Model):
 
     class Meta:
         ordering = ["-updated_at"]
+        indexes = [
+            # Every list query filters by user and sorts by -updated_at
+            # (get_queryset + Meta.ordering), so this composite index lets
+            # Postgres satisfy both in one index scan instead of filtering
+            # then sorting separately.
+            models.Index(fields=["user", "-updated_at"], name="notes_user_updated_idx"),
+        ]
 
     def __str__(self) -> str:
         return self.title or f"Untitled note ({self.pk})"

@@ -1,7 +1,7 @@
 from typing import cast
 
 from django.db.models import Count, QuerySet
-from rest_framework import viewsets
+from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -24,6 +24,8 @@ class NoteViewSet(viewsets.ModelViewSet[Note]):
     serializer_class = NoteSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = NotePagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["title", "body"]
 
     def get_queryset(self) -> QuerySet[Note]:
         # IsAuthenticated guarantees a real User here; DRF's stubs still

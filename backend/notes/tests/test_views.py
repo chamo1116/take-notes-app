@@ -135,6 +135,32 @@ def test_list_notes_filters_by_category(api_client: APIClient) -> None:
     assert titles == ["School note"]
 
 
+def test_list_notes_searches_title_and_body(api_client: APIClient) -> None:
+    user = create_user()
+    create_note(user=user, title="Grocery list", body="Milk and eggs")
+    create_note(user=user, title="Trip plans", body="Book flights and groceries")
+    create_note(user=user, title="Unrelated", body="Nothing to see here")
+    api_client.force_authenticate(user=user)
+
+    response = api_client.get("/api/v1/notes", {"search": "grocer"})
+
+    assert response.status_code == status.HTTP_200_OK
+    titles = {note["title"] for note in response.data["results"]}
+    assert titles == {"Grocery list", "Trip plans"}
+
+
+def test_search_only_matches_the_requesting_users_notes(api_client: APIClient) -> None:
+    user = create_user()
+    other_user = create_user()
+    create_note(user=other_user, title="Shared keyword note")
+    api_client.force_authenticate(user=user)
+
+    response = api_client.get("/api/v1/notes", {"search": "keyword"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
+
+
 def test_list_notes_paginates(api_client: APIClient) -> None:
     user = create_user()
     for _ in range(7):

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Category, CategorySlug } from "@/lib/categories";
+import { CategorySwatch } from "./CategorySwatch";
 
 type Props = {
   categories: readonly Category[];
@@ -45,12 +46,7 @@ export function CategoryDropdown({ categories, selected, onSelect }: Props) {
         aria-expanded={open}
         className="flex items-center gap-2 rounded-full border border-brown bg-cream px-5 py-2 font-inria-serif text-lg font-bold text-brown"
       >
-        <span
-          aria-hidden="true"
-          className="h-2.5 w-2.5 rounded-full"
-          style={{ backgroundColor: selected.color }}
-        />
-        {selected.name}
+        <CategorySwatch category={selected} />
         <svg
           aria-hidden="true"
           viewBox="0 0 12 8"
@@ -77,12 +73,7 @@ export function CategoryDropdown({ categories, selected, onSelect }: Props) {
                 }}
                 className="flex w-full items-center gap-2 px-4 py-2 text-left font-inter text-sm text-gray-900 hover:bg-black/5"
               >
-                <span
-                  aria-hidden="true"
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: category.color }}
-                />
-                {category.name}
+                <CategorySwatch category={category} />
               </button>
             </li>
           ))}

@@ -11,9 +11,21 @@ A full-stack notes application: a Django REST Framework API backend and a Next.j
 - **Database:** PostgreSQL 16.
 - **Deployment:** Vercel, as two bound services (frontend + backend) behind a single domain.
 
+## Additional Features
+
+- **Notes CRUD**, scoped per-user, with autosave (fires 1s after the last keystroke, via `PATCH`/`POST` in [`frontend/app/dashboard/NoteEditor.tsx`](frontend/app/dashboard/NoteEditor.tsx)) and delete (two-click confirm in the same editor).
+- **Categories** — four fixed categories with a color-coded filter sidebar and live per-category counts (`GET /api/v1/notes/category-counts`), computed with a single `Count()` aggregation ([`backend/notes/views.py`](backend/notes/views.py)) rather than one query per category.
+- **Search** — case-insensitive search across title and body (`?search=`, DRF's `SearchFilter`), debounced 400ms client-side so it doesn't fire a request per keystroke.
+- **Infinite scroll** — paginated at 6 notes/page, with an `IntersectionObserver` sentinel that fetches the next page as it scrolls into view.
+- **Grid/list view toggle** for the notes list.
+- **Loading and failure states** — a visible indicator while a filter/search/scroll fetch is in flight, and an error banner if it fails, instead of failing silently.
+- **Query optimization:** a composite index on `Note(user, -updated_at)` ([`backend/notes/models.py`](backend/notes/models.py)) matches the list endpoint's filter (`user=`) and sort (`-updated_at`) exactly, so Postgres can satisfy both in a single index scan instead of a filter-then-sort.
+
 ## How this repo was built
 
 Development started from two Claude Code skills — [`django-expert`](.claude/skills/django-expert/SKILL.md) and [`nextjs-expert`](.claude/skills/nextjs-expert/SKILL.md) — checked into `.claude/skills/`, which encode this project's conventions for DRF API design and Next.js App Router structure. Every feature was implemented against those conventions rather than against ad hoc choices per feature, which is why the backend and frontend each look internally consistent (settings split by environment, server actions for all API calls, etc).
+
+Structurally identical flows share one component rather than being duplicated per page: [`AuthForm`](frontend/components/AuthForm.tsx) and [`AuthLayout`](frontend/components/AuthLayout.tsx) back both the login and signup pages (each page just supplies its action, labels, and hero image), and [`CategorySwatch`](frontend/app/dashboard/CategorySwatch.tsx) is the single source for the category dot-plus-name pairing used by both the category dropdown and the sidebar filter list.
 
 On top of that baseline, the project applies a set of good practices enforced in CI (`.github/workflows/ci.yml`) rather than left to convention:
 

@@ -129,20 +129,45 @@ export async function updateNoteAction(id: number, input: unknown): Promise<Note
   return { ok: true, id: note.id, updatedAt: note.updated_at };
 }
 
+export type DeleteNoteResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteNoteAction(id: number): Promise<DeleteNoteResult> {
+  let response: Response | null;
+  try {
+    response = await noteRequest(`/api/v1/notes/${id}`, { method: "DELETE" });
+  } catch (err) {
+    logger.error("Delete note request failed", {
+      noteId: id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, error: "Something went wrong. Please try again." };
+  }
+
+  if (!response) return redirectToLogin();
+  if (response.status === 401) return redirectToLogin();
+  if (!response.ok) {
+    logger.error("Failed to delete note", { noteId: id, status: response.status });
+    return { ok: false, error: "Failed to delete note." };
+  }
+
+  return { ok: true };
+}
+
 export type NotesPageResult =
   | { ok: true; notes: Note[]; nextPage: number | null }
   | { ok: false; error: string };
 
 export async function getNotesAction(
-  params: { category?: CategorySlug; page?: number } = {},
+  params: { category?: CategorySlug; page?: number; search?: string } = {},
 ): Promise<NotesPageResult> {
   const page = params.page ?? 1;
-  const search = new URLSearchParams({ page: String(page) });
-  if (params.category) search.set("category", params.category);
+  const query = new URLSearchParams({ page: String(page) });
+  if (params.category) query.set("category", params.category);
+  if (params.search) query.set("search", params.search);
 
   let response: Response | null;
   try {
-    response = await noteRequest(`/api/v1/notes?${search.toString()}`, { method: "GET" });
+    response = await noteRequest(`/api/v1/notes?${query.toString()}`, { method: "GET" });
   } catch (err) {
     logger.error("List notes request failed", {
       error: err instanceof Error ? err.message : String(err),

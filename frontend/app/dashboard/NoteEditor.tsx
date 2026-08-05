@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import { formatLastEdited } from "@/lib/formatLastEdited";
 import type { Note } from "@/lib/types";
-import { createNoteAction, updateNoteAction } from "./actions";
+import { createNoteAction, deleteNoteAction, updateNoteAction } from "./actions";
 import { CategoryDropdown } from "./CategoryDropdown";
 
 const AUTOSAVE_DELAY_MS = 1000;
@@ -20,6 +20,7 @@ export function NoteEditor({ onClose, note }: Props) {
   const [body, setBody] = useState(note?.body ?? "");
   const [updatedAt, setUpdatedAt] = useState<string | null>(note?.updatedAt ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [, startTransition] = useTransition();
 
   const noteIdRef = useRef<number | null>(note?.id ?? null);
@@ -34,6 +35,7 @@ export function NoteEditor({ onClose, note }: Props) {
       return;
     }
 
+    setConfirmingDelete(false);
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const hasContent = title.trim() !== "" || body.trim() !== "";
@@ -65,26 +67,75 @@ export function NoteEditor({ onClose, note }: Props) {
 
   const selectedCategory = CATEGORIES.find((item) => item.slug === category) ?? CATEGORIES[0];
 
+  function handleDelete() {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const id = noteIdRef.current;
+    if (id === null) {
+      onClose();
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await deleteNoteAction(id);
+      if (result.ok) {
+        onClose();
+      } else {
+        setError(result.error);
+        setConfirmingDelete(false);
+      }
+    });
+  }
+
   return (
     <div data-testid="note-editor" className="fixed inset-0 z-50 flex flex-col bg-cream p-6 sm:p-10">
       <div className="flex items-center justify-between">
         <CategoryDropdown categories={CATEGORIES} selected={selectedCategory} onSelect={setCategory} />
 
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close note editor"
-          className="text-brown"
-        >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6">
-            <path
-              d="M4 4l16 16M20 4L4 20"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <div className="flex items-center gap-4">
+          {updatedAt !== null && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label={confirmingDelete ? "Confirm delete note" : "Delete note"}
+              data-testid="note-delete-button"
+              className="font-inter text-sm text-red-700"
+            >
+              {confirmingDelete ? "Confirm delete?" : (
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6">
+                  <path
+                    d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0-1 13a1 1 0 01-1 1H8a1 1 0 01-1-1L6 7h12z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </svg>
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close note editor"
+            className="text-brown"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6">
+              <path
+                d="M4 4l16 16M20 4L4 20"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div

@@ -2,15 +2,17 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NoteEditor } from "./NoteEditor";
-import { createNoteAction, updateNoteAction } from "./actions";
+import { createNoteAction, deleteNoteAction, updateNoteAction } from "./actions";
 
 vi.mock("./actions", () => ({
   createNoteAction: vi.fn(),
   updateNoteAction: vi.fn(),
+  deleteNoteAction: vi.fn(),
 }));
 
 const mockedCreateNoteAction = vi.mocked(createNoteAction);
 const mockedUpdateNoteAction = vi.mocked(updateNoteAction);
+const mockedDeleteNoteAction = vi.mocked(deleteNoteAction);
 
 // The editor autosaves 1s after the last keystroke; give assertions that
 // wait on a save enough headroom above that real delay.
@@ -20,6 +22,7 @@ describe("NoteEditor", () => {
   beforeEach(() => {
     mockedCreateNoteAction.mockReset();
     mockedUpdateNoteAction.mockReset();
+    mockedDeleteNoteAction.mockReset();
   });
 
   it("renders the default category, title and body fields, and no timestamp yet", () => {
@@ -202,5 +205,66 @@ describe("NoteEditor", () => {
       });
     }, AUTOSAVE_WAIT_OPTIONS);
     expect(mockedCreateNoteAction).not.toHaveBeenCalled();
+  });
+
+  it("does not show a delete button for a note that has never been saved", () => {
+    render(<NoteEditor onClose={vi.fn()} />);
+
+    expect(screen.queryByTestId("note-delete-button")).not.toBeInTheDocument();
+  });
+
+  it("requires a second click to confirm deleting an existing note", async () => {
+    mockedDeleteNoteAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <NoteEditor
+        onClose={onClose}
+        note={{
+          id: 42,
+          title: "Vacation Ideas",
+          body: "Visit Bali",
+          category: "drama",
+          updatedAt: "2024-07-21T20:39:00.000Z",
+        }}
+      />,
+    );
+
+    await user.click(screen.getByTestId("note-delete-button"));
+    expect(mockedDeleteNoteAction).not.toHaveBeenCalled();
+    expect(screen.getByTestId("note-delete-button")).toHaveTextContent("Confirm delete?");
+
+    await user.click(screen.getByTestId("note-delete-button"));
+
+    await waitFor(() => {
+      expect(mockedDeleteNoteAction).toHaveBeenCalledWith(42);
+    });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shows an error and stays open when deletion fails", async () => {
+    mockedDeleteNoteAction.mockResolvedValue({ ok: false, error: "Failed to delete note." });
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <NoteEditor
+        onClose={onClose}
+        note={{
+          id: 42,
+          title: "Vacation Ideas",
+          body: "Visit Bali",
+          category: "drama",
+          updatedAt: "2024-07-21T20:39:00.000Z",
+        }}
+      />,
+    );
+
+    await user.click(screen.getByTestId("note-delete-button"));
+    await user.click(screen.getByTestId("note-delete-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("note-editor-error")).toHaveTextContent("Failed to delete note.");
+    });
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

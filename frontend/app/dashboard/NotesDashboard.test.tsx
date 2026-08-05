@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NotesDashboard } from "./NotesDashboard";
 import type { Note } from "@/lib/types";
@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("./actions", () => ({
   createNoteAction: vi.fn(),
   updateNoteAction: vi.fn(),
+  deleteNoteAction: vi.fn(),
   getNotesAction: vi.fn(),
 }));
 
@@ -157,5 +158,73 @@ describe("NotesDashboard", () => {
     expect(await screen.findByText("Second Page Note")).toBeInTheDocument();
     expect(screen.getByText("First Page Note")).toBeInTheDocument();
     expect(mockedGetNotesAction).toHaveBeenCalledWith({ category: undefined, page: 2 });
+  });
+
+  it("shows an error banner when a filtered fetch fails", async () => {
+    const user = userEvent.setup();
+    mockedGetNotesAction.mockResolvedValueOnce({ ok: false, error: "Failed to load notes." });
+    render(<NotesDashboard notes={[]} nextPage={null} counts={zeroCounts} />);
+
+    await user.click(screen.getByRole("button", { name: "Filter by School" }));
+
+    expect(await screen.findByTestId("notes-error-banner")).toHaveTextContent(
+      "Failed to load notes.",
+    );
+  });
+
+  it("shows a loading indicator while a filtered fetch is in flight", async () => {
+    const user = userEvent.setup();
+    let resolveFetch: (value: { ok: true; notes: Note[]; nextPage: number | null }) => void =
+      () => {};
+    mockedGetNotesAction.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    render(<NotesDashboard notes={[]} nextPage={null} counts={zeroCounts} />);
+
+    await user.click(screen.getByRole("button", { name: "Filter by School" }));
+
+    expect(await screen.findByText("Loading notes...")).toBeInTheDocument();
+
+    resolveFetch({ ok: true, notes: [], nextPage: null });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading notes...")).not.toBeInTheDocument();
+    });
+  });
+
+  it("debounces search input and fetches matching notes", async () => {
+    const user = userEvent.setup();
+    const found = note({ id: 5, title: "Grocery List" });
+    mockedGetNotesAction.mockResolvedValueOnce({ ok: true, notes: [found], nextPage: null });
+    render(<NotesDashboard notes={[]} nextPage={null} counts={zeroCounts} />);
+
+    await user.type(screen.getByTestId("notes-search-input"), "grocery");
+
+    await waitFor(
+      () => {
+        expect(mockedGetNotesAction).toHaveBeenCalledWith({
+          category: undefined,
+          page: 1,
+          search: "grocery",
+        });
+      },
+      { timeout: 1500 },
+    );
+    expect(await screen.findByText("Grocery List")).toBeInTheDocument();
+  });
+
+  it("switches between grid and list layouts", async () => {
+    const user = userEvent.setup();
+    const notes = [note({ id: 1, title: "Grocery List" })];
+    render(<NotesDashboard notes={notes} nextPage={null} counts={zeroCounts} />);
+
+    expect(screen.getByTestId("notes-list").className).toMatch(/grid-cols/);
+
+    await user.click(screen.getByTestId("view-mode-list"));
+
+    expect(screen.getByTestId("notes-list").className).not.toMatch(/grid-cols/);
+    expect(screen.getByTestId("notes-list").className).toMatch(/flex-col/);
   });
 });

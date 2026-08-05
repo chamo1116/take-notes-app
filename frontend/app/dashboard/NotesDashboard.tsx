@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import type { Note } from "@/lib/types";
 import { getNotesAction, type CategoryCounts } from "./actions";
+import { CategorySwatch } from "./CategorySwatch";
 import { NoteCard } from "./NoteCard";
 import { NoteEditor } from "./NoteEditor";
 
@@ -17,13 +18,18 @@ type Props = {
 
 type Filter = CategorySlug | "all";
 type EditorTarget = "new" | Note;
+type ViewMode = "grid" | "list";
 
 export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage, counts }: Props) {
   const router = useRouter();
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [notes, setNotes] = useState(initialNotes);
   const [nextPage, setNextPage] = useState(initialNextPage);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const isLoadingRef = useRef(false);
@@ -41,39 +47,39 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
     setNotes(initialNotes);
     setNextPage(initialNextPage);
     setFilter("all");
+    setSearch("");
+  }
+
+  function fetchNotes(page: number, category: Filter, query: string, mode: "replace" | "append") {
+    isLoadingRef.current = true;
+    setIsLoading(true);
+    startTransition(async () => {
+      const result = await getNotesAction({
+        category: category === "all" ? undefined : category,
+        page,
+        search: query || undefined,
+      });
+      if (result.ok) {
+        setErrorMessage(null);
+        setNotes((previous) => (mode === "append" ? [...previous, ...result.notes] : result.notes));
+        setNextPage(result.nextPage);
+      } else {
+        setErrorMessage(result.error);
+      }
+      isLoadingRef.current = false;
+      setIsLoading(false);
+    });
   }
 
   function selectFilter(next: Filter) {
     if (next === filter) return;
     setFilter(next);
-    isLoadingRef.current = true;
-    startTransition(async () => {
-      const result = await getNotesAction({
-        category: next === "all" ? undefined : next,
-        page: 1,
-      });
-      if (result.ok) {
-        setNotes(result.notes);
-        setNextPage(result.nextPage);
-      }
-      isLoadingRef.current = false;
-    });
+    fetchNotes(1, next, search, "replace");
   }
 
   function loadMore() {
     if (nextPage === null || isLoadingRef.current) return;
-    isLoadingRef.current = true;
-    startTransition(async () => {
-      const result = await getNotesAction({
-        category: filter === "all" ? undefined : filter,
-        page: nextPage,
-      });
-      if (result.ok) {
-        setNotes((previous) => [...previous, ...result.notes]);
-        setNextPage(result.nextPage);
-      }
-      isLoadingRef.current = false;
-    });
+    fetchNotes(nextPage, filter, search, "append");
   }
 
   useEffect(() => {
@@ -91,6 +97,19 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextPage, filter]);
 
+  // Debounce search-as-you-type so we don't fire a request per keystroke;
+  // skip the first render so mounting doesn't immediately refetch.
+  const isFirstSearchRender = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRender.current) {
+      isFirstSearchRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => fetchNotes(1, filter, search, "replace"), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   function closeEditor() {
     setEditorTarget(null);
     router.refresh();
@@ -98,7 +117,17 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
 
   return (
     <main className="min-h-screen bg-cream px-6 py-6 sm:px-10 sm:py-10">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search notes..."
+          aria-label="Search notes"
+          data-testid="notes-search-input"
+          className="w-full max-w-sm rounded-full border border-brown/40 bg-white/60 px-5 py-2 font-inter text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none"
+        />
+
         <button
           type="button"
           onClick={() => setEditorTarget("new")}
@@ -110,6 +139,16 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
           New Note
         </button>
       </div>
+
+      {errorMessage && (
+        <p
+          role="alert"
+          data-testid="notes-error-banner"
+          className="mt-4 rounded-lg bg-red-50 px-4 py-2 font-inter text-sm text-red-700"
+        >
+          {errorMessage}
+        </p>
+      )}
 
       <div className="mt-8 flex flex-col gap-10 sm:flex-row">
         <aside className="flex-shrink-0 sm:w-52">
@@ -128,12 +167,7 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
                   aria-label={`Filter by ${category.name}`}
                   className="flex w-full items-center gap-2"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="font-inter text-sm text-gray-900">{category.name}</span>
+                  <CategorySwatch category={category} nameClassName="font-inter text-sm text-gray-900" />
                   <span className="ml-auto font-inter text-xs text-gray-500">
                     {counts[category.slug] ?? 0}
                   </span>
@@ -144,16 +178,67 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
         </aside>
 
         <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <p
+              aria-live="polite"
+              data-testid="notes-loading-indicator"
+              className="font-inter text-xs text-gray-500"
+            >
+              {isLoading ? "Loading notes..." : ""}
+            </p>
+
+            <div className="flex items-center gap-2" role="group" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                aria-pressed={viewMode === "grid"}
+                aria-label="Grid view"
+                data-testid="view-mode-grid"
+                className={viewMode === "grid" ? "text-brown" : "text-gray-400"}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                  <rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
+                  <rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" />
+                  <rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
+                  <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                aria-pressed={viewMode === "list"}
+                aria-label="List view"
+                data-testid="view-mode-list"
+                className={viewMode === "list" ? "text-brown" : "text-gray-400"}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+                  <rect x="3" y="4" width="18" height="3.5" rx="1.5" fill="currentColor" />
+                  <rect x="3" y="10.25" width="18" height="3.5" rx="1.5" fill="currentColor" />
+                  <rect x="3" y="16.5" width="18" height="3.5" rx="1.5" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           {notes.length === 0 ? (
             <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
               <Image src="/assets/coffe_waiting.png" alt="" width={220} height={220} priority />
               <p className="max-w-2xl font-inter text-2xl text-brown">
-                I&apos;m just here waiting for your charming notes...
+                {search
+                  ? "No notes match your search."
+                  : "I'm just here waiting for your charming notes..."}
               </p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                data-testid="notes-list"
+                className={
+                  viewMode === "grid"
+                    ? "mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                    : "mt-4 flex flex-col gap-4"
+                }
+              >
                 {notes.map((note) => (
                   <NoteCard key={note.id} note={note} onClick={() => setEditorTarget(note)} />
                 ))}

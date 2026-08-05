@@ -1,5 +1,5 @@
-import Image from "next/image";
 import type { Metadata } from "next";
+import { AuthLayout } from "@/components/AuthLayout";
 import { SignupForm } from "./SignupForm";
 
 export const metadata: Metadata = {
@@ -8,12 +8,8 @@ export const metadata: Metadata = {
 
 export default function SignupPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-cream px-4 py-12">
-      <Image src="/assets/cow.png" alt="" width={200} height={143} priority />
-      <h1 className="text-center font-inria-serif text-3xl font-bold leading-none text-heading sm:text-5xl">
-        Yay, New Friend!
-      </h1>
+    <AuthLayout imageSrc="/assets/cow.png" imageWidth={200} imageHeight={143} heading="Yay, New Friend!">
       <SignupForm />
-    </main>
+    </AuthLayout>
   );
 }
