@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["app/**/*.test.{ts,tsx}"],
+    include: ["app/**/*.test.{ts,tsx}", "components/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
@@ -27,6 +27,7 @@ export default defineConfig({
         "app/layout.tsx",
         "app/**/actions.ts",
         "app/**/*.test.*",
+        "components/**/*.test.*",
         "env.ts",
       ],
       thresholds: {

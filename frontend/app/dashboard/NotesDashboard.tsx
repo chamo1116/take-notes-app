@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { CATEGORIES, type CategorySlug } from "@/lib/categories";
 import type { Note } from "@/lib/types";
+import { Spinner } from "@/components/Spinner";
 import { getNotesAction, type CategoryCounts } from "./actions";
 import { CategorySwatch } from "./CategorySwatch";
 import { NoteCard } from "./NoteCard";
@@ -14,13 +15,19 @@ type Props = {
   notes: Note[];
   nextPage: number | null;
   counts: CategoryCounts;
+  initialError?: string | null;
 };
 
 type Filter = CategorySlug | "all";
 type EditorTarget = "new" | Note;
 type ViewMode = "grid" | "list";
 
-export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage, counts }: Props) {
+export function NotesDashboard({
+  notes: initialNotes,
+  nextPage: initialNextPage,
+  counts,
+  initialError = null,
+}: Props) {
   const router = useRouter();
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -30,7 +37,7 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
   const [nextPage, setNextPage] = useState(initialNextPage);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
   const [, startTransition] = useTransition();
 
   const isLoadingRef = useRef(false);
@@ -49,6 +56,7 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
     setNextPage(initialNextPage);
     setFilter("all");
     setSearch("");
+    setErrorMessage(initialError);
   }
 
   function fetchNotes(page: number, category: Filter, query: string, mode: "replace" | "append") {
@@ -230,9 +238,11 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
             <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
               <Image src="/assets/coffe_waiting.png" alt="" width={220} height={220} priority />
               <p className="max-w-2xl font-inter text-2xl text-brown">
-                {search
-                  ? "No notes match your search."
-                  : "I'm just here waiting for your charming notes..."}
+                {errorMessage
+                  ? "We couldn't load your notes."
+                  : search
+                    ? "No notes match your search."
+                    : "I'm just here waiting for your charming notes..."}
               </p>
             </div>
           ) : (
@@ -250,12 +260,8 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
                 ))}
               </div>
               {isLoadingMore && (
-                <div className="mt-6 flex justify-center" role="status" aria-live="polite">
-                  <span
-                    data-testid="notes-loading-more-spinner"
-                    aria-label="Loading more notes"
-                    className="h-6 w-6 animate-spin rounded-full border-2 border-brown/30 border-t-brown"
-                  />
+                <div className="mt-6 flex justify-center" aria-live="polite">
+                  <Spinner label="Loading more notes" />
                 </div>
               )}
               <div ref={sentinelRef} aria-hidden="true" className="h-1" />

@@ -20,6 +20,9 @@ export default async function DashboardPage() {
   const notes = notesResult.ok ? notesResult.notes : [];
   const nextPage = notesResult.ok ? notesResult.nextPage : null;
   const counts = countsResult.ok ? countsResult.counts : zeroCountsByCategory();
+  const initialError = notesResult.ok ? null : notesResult.error;
 
-  return <NotesDashboard notes={notes} nextPage={nextPage} counts={counts} />;
+  return (
+    <NotesDashboard notes={notes} nextPage={nextPage} counts={counts} initialError={initialError} />
+  );
 }
