@@ -106,23 +106,23 @@ pnpm dev
 
 ### Tests and checks
 
+Run against the containers started by `docker compose up` above — no local Python/Node install needed. If the stack isn't already running, swap `exec` for `docker compose run --rm` on each command below.
+
 Backend:
 
 ```bash
-cd backend
-uv run ruff check . && uv run ruff format --check .
-uv run mypy .
-uv run pytest --cov=accounts --cov=notes --cov-report=term-missing
+docker compose exec backend ruff check . && docker compose exec backend ruff format --check .
+docker compose exec backend mypy .
+docker compose exec backend pytest --cov=accounts --cov=notes --cov-report=term-missing
 ```
 
 Frontend:
 
 ```bash
-cd frontend
-pnpm lint
-pnpm typecheck
-pnpm test           # Vitest unit/component tests
-pnpm e2e             # Playwright end-to-end tests
+docker compose exec frontend pnpm lint
+docker compose exec frontend pnpm typecheck
+docker compose exec frontend pnpm test    # Vitest unit/component tests
+docker compose exec frontend pnpm e2e     # Playwright end-to-end tests
 ```
 
 ## Deployment
