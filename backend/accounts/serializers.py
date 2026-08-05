@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from accounts import services
 from accounts.models import User
 
 
@@ -46,4 +47,4 @@ class RegisterSerializer(serializers.ModelSerializer[User]):
         return value
 
     def create(self, validated_data: dict[str, Any]) -> User:
-        return User.objects.create_user(**validated_data)
+        return services.register_user(**validated_data)

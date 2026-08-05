@@ -8,9 +8,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from accounts import services
 from accounts.models import User
 from accounts.serializers import EmailTokenObtainPairSerializer, RegisterSerializer
 
@@ -30,9 +30,9 @@ class EmailTokenObtainPairView(TokenObtainPairView):
         try:
             response = super().post(request, *args, **kwargs)
         except AuthenticationFailed:
-            logger.warning("Login failed: invalid credentials", extra={"email": email})
+            services.log_login_failure(email)
             raise
-        logger.info("User logged in", extra={"email": email})
+        services.log_login_success(email)
         return response
 
 
@@ -56,13 +56,9 @@ class RegisterView(CreateAPIView[User]):
                 extra={"email": request.data.get("email"), "errors": serializer.errors},
             )
             raise
-        user = serializer.save()
-        logger.info("User signed up", extra={"user_id": user.id, "email": user.email})
+        user = services.register_user(**serializer.validated_data)
 
         # Log the new user straight in, same as the login endpoint, so the
         # frontend can send them to the dashboard without a second request.
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {"access": str(refresh.access_token), "refresh": str(refresh)},
-            status=status.HTTP_201_CREATED,
-        )
+        tokens = services.issue_tokens_for_user(user)
+        return Response(tokens, status=status.HTTP_201_CREATED)
