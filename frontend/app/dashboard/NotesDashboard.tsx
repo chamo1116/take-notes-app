@@ -29,6 +29,7 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
   const [notes, setNotes] = useState(initialNotes);
   const [nextPage, setNextPage] = useState(initialNextPage);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -52,7 +53,11 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
 
   function fetchNotes(page: number, category: Filter, query: string, mode: "replace" | "append") {
     isLoadingRef.current = true;
-    setIsLoading(true);
+    if (mode === "append") {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
     startTransition(async () => {
       const result = await getNotesAction({
         category: category === "all" ? undefined : category,
@@ -68,6 +73,7 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
       }
       isLoadingRef.current = false;
       setIsLoading(false);
+      setIsLoadingMore(false);
     });
   }
 
@@ -243,6 +249,15 @@ export function NotesDashboard({ notes: initialNotes, nextPage: initialNextPage,
                   <NoteCard key={note.id} note={note} onClick={() => setEditorTarget(note)} />
                 ))}
               </div>
+              {isLoadingMore && (
+                <div className="mt-6 flex justify-center" role="status" aria-live="polite">
+                  <span
+                    data-testid="notes-loading-more-spinner"
+                    aria-label="Loading more notes"
+                    className="h-6 w-6 animate-spin rounded-full border-2 border-brown/30 border-t-brown"
+                  />
+                </div>
+              )}
               <div ref={sentinelRef} aria-hidden="true" className="h-1" />
             </>
           )}
